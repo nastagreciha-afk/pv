@@ -3,114 +3,61 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Invoice;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
+use App\Http\Requests\Api\InvoiceStoreRequest;
+use App\Http\Requests\Api\InvoiceUpdateRequest;
+use App\Services\InvoiceService;
+use Illuminate\Http\JsonResponse;
 
 class InvoiceController extends Controller
 {
+    protected InvoiceService $invoiceService;
+
+    public function __construct(InvoiceService $invoiceService)
+    {
+        $this->invoiceService = $invoiceService;
+    }
+
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(): JsonResponse
     {
-            $invoices = Invoice::query()
-                ->orderByDesc('created_at')
-                ->paginate(20);
-
-            return response()->json($invoices);
+        $invoices = $this->invoiceService->getAllInvoices();
+        return response()->json($invoices);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(InvoiceStoreRequest $request): JsonResponse
     {
-        $validated = $request->validate($this->rules());
-
-        $this->validateBusinessRules($validated);
-
-        $invoice = Invoice::create($validated);
-
+        $invoice = $this->invoiceService->createInvoice($request->validated());
         return response()->json($invoice, 201);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(string $id): JsonResponse
     {
-        $invoice = Invoice::findOrFail($id);
-
+        $invoice = $this->invoiceService->getInvoice((int)$id);
         return response()->json($invoice);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(InvoiceUpdateRequest $request, string $id): JsonResponse
     {
-        $invoice = Invoice::findOrFail($id);
-
-        if ($invoice->status !== 'pending') {
-            return response()->json([
-                'message' => 'Only invoices with pending status can be updated.',
-            ], 422);
-        }
-
-        $validated = $request->validate($this->rules($invoice->id));
-
-        $this->validateBusinessRules($validated);
-
-        $invoice->update($validated);
-
+        $invoice = $this->invoiceService->updateInvoice((int)$id, $request->validated());
         return response()->json($invoice);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(string $id): JsonResponse
     {
         return response()->json(['message' => 'Not implemented'], 405);
-    }
-
-    /**
-     * Validation rules for creating/updating invoices.
-     */
-    protected function rules(?int $ignoreId = null): array
-    {
-        return [
-            'number' => [
-                'required',
-                'string',
-                Rule::unique('invoices', 'number')->ignore($ignoreId),
-            ],
-            'supplier_name' => ['required', 'string', 'max:255'],
-            'supplier_tax_id' => ['required', 'string', 'max:255'],
-            'net_amount' => ['required', 'numeric', 'gt:0'],
-            'vat_amount' => ['required', 'numeric', 'gte:0'],
-            'gross_amount' => ['required', 'numeric'],
-            'currency' => ['required', 'string', 'size:3'],
-            'status' => ['required', Rule::in(['pending', 'approved', 'rejected'])],
-            'issue_date' => ['required', 'date'],
-            'due_date' => ['required', 'date', 'after_or_equal:issue_date'],
-        ];
-    }
-
-    /**
-     * Additional business validations for monetary fields.
-     */
-    protected function validateBusinessRules(array $validated): void
-    {
-        $expectedGross = round((float) $validated['net_amount'] + (float) $validated['vat_amount'], 2);
-        $gross = round((float) $validated['gross_amount'], 2);
-
-        if ($gross !== $expectedGross) {
-            throw ValidationException::withMessages([
-                'gross_amount' => ['Gross amount must equal net_amount + vat_amount.'],
-            ]);
-        }
     }
 }
