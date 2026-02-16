@@ -10,7 +10,7 @@ interface InvoiceRepositoryInterface
     /**
      * Get all invoices with pagination
      */
-    public function getAll(int $perPage = 20): LengthAwarePaginator;
+    public function getAll(int $perPage = 20, int $page = 1): LengthAwarePaginator;
 
     /**
      * Find invoice by ID

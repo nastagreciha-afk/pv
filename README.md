@@ -1,75 +1,97 @@
-### 1. Як структуровано frontend і backend?
+# Invoice Manager
 
-- **Backend (Laravel 11, PHP 8.2+)**
-  - `app/Models/Invoice.php` – Eloquent‑модель з усіма потрібними полями.
-  - `database/migrations/*create_invoices_table.php` – схема таблиці `invoices` з полями:
-    `id`, `number`, `supplier_name`, `supplier_tax_id`, `net_amount`, `vat_amount`,
-    `gross_amount`, `currency`, `status`, `issue_date`, `due_date`, `created_at`, `updated_at`.
-  - `app/Http/Controllers/Api/InvoiceController.php` – REST API:
-    - `GET /api/invoices` – список (сортування `created_at desc`, pagination).
-    - `GET /api/invoices/{id}` – один інвойс.
-    - `POST /api/invoices` – створення з валідацією.
-    - `PUT /api/invoices/{id}` – оновлення тільки для `status = pending`.
-  - `routes/api.php` – JSON‑маршрути без аутентифікації.
+Full-stack app: Nuxt 4 + Laravel API for managing invoices.
 
-- **Frontend (Nuxt 4, Vue 3.5, TailwindCSS 4)**
-  - `frontend/nuxt.config.ts` – Nuxt 4, підключення Tailwind (`css`) та `runtimeConfig.public.apiBase`.
-  - `frontend/assets/css/tailwind.css` + `frontend/tailwind.config.js` – TailwindCSS 4.
-  - `frontend/pages/index.vue` – простий дашборд з переходом на список.
-  - `frontend/pages/invoices/index.vue` – список інвойсів:
-    відображає `number`, `supplier_name`, `gross_amount`, `status`, `due_date`,
-    має `loading/error` стани, клікабельний рядок веде на `/invoices/[id]`.
-  - `frontend/pages/invoices/[id].vue` – деталі інвойсу:
-    повна інформація, статус‑бейдж, форматовані дати + форма редагування.
-  - Валідація на фронтенді: `vee-validate` + `zod` для форми редагування.
+---
 
-### 2. Які компроміси зроблені і чому?
+## 1. How are frontend and backend structured?
 
-- **ID інвойсу** – використано `auto increment` (`$table->id()`), а не UUID, щоб спростити міграції
-  та SQL‑запити в демонстраційному проєкті.
-- **Бізнес‑логіка в контролері** – частина валідації (`gross_amount = net + vat`) розміщена
-  без окремого сервіс‑класу, щоб зменшити кількість файлів і зробити приклад компактним.
-- **TailwindCSS 4 (beta)** – використано актуальний beta‑реліз Tailwind 4,
-  щоб відповідати вимозі стеку, але конфігурація залишена максимально простою.
-- **Пагінація** – використано стандартну Laravel‑пагінацію без окремого фронтенд‑компонента
-  (фронт зараз працює з першою сторінкою), бо задачі вистачає базового списку.
+**Backend (Laravel 11, PHP 8.2+)**
+- `app/Models/Invoice.php` – Eloquent model with required fields.
+- `database/migrations/*create_invoices_table.php` – `invoices` table: `id`, `number`, `supplier_name`, `supplier_tax_id`, `net_amount`, `vat_amount`, `gross_amount`, `currency`, `status`, `issue_date`, `due_date`, `created_at`, `updated_at`.
+- `app/Http/Controllers/Api/InvoiceController.php` – REST API: `GET /api/invoices` (list, `created_at desc`, pagination), `GET /api/invoices/{id}`, `POST /api/invoices`, `PUT /api/invoices/{id}` (only when `status = pending`).
+- `routes/api.php` – JSON routes, no auth.
 
-### 3. Що б я покращив у production‑версії?
+**Frontend (Nuxt 4, Vue 3.5, Tailwind)**
+- `frontend/nuxt.config.ts` – Nuxt 4, Tailwind via `css` and `runtimeConfig.public.apiBase`.
+- `frontend/pages/invoices/index.vue` – list (number, supplier_name, gross_amount, status, due_date), loading/error, row click → `/invoices/[id]`.
+- `frontend/pages/invoices/[id]` – detail view and edit form; validation with zod.
 
-- Виніс би бізнес‑логіку інвойсів в окремий сервіс (наприклад, `app/Services/InvoiceService.php`)
-  та додав unit/feature‑тести на всі кейси валідації сум і дат.
-- Додав би фільтри й сортування на фронтенді (по даті, статусу, постачальнику) та нормальну
-  пагінацію зі сторінками.
-- Зробив би централізований UI‑кит (кнопки, таблиці, бейджі) і впровадив дизайн‑систему.
-- Додав би логування дій користувача (audit trail) для змін інвойсів.
+---
 
-### 4. Які UX edge cases враховано?
+## 2. What trade-offs were made?
 
-- **Loading/error стани**:
-  - Список інвойсів і деталі показують окремі стани "Loading…" і помилки завантаження.
-- **Недоступність редагування**:
-  - Форма редагування повністю заблокована, якщо `status != pending`,
-    з явним текстовим поясненням.
-- **Консистентність сум**:
-  - `gross_amount` на фронті завжди автоматично перераховується як
-    `net_amount + vat_amount`, користувач не може змінити його вручну.
-  - Бекенд додатково перевіряє, що `gross_amount = net + vat` (запобігання маніпуляціям).
-- **Дати**:
-  - Форма не дозволяє зберегти `due_date` раніше `issue_date` (перевірка в zod + бекенді).
-  - Дати й `last updated` відображаються у читабельному форматі `uk-UA`.
-- **М'яке повідомлення про помилки**:
-  - На сторінці деталей інвойсу є toast‑повідомлення з результатом оновлення
-    (успіх/помилка бекенду).
+- **Invoice ID** – `auto increment` instead of UUID for simpler migrations and queries.
+- **Business logic** – validation and update rules live in `InvoiceService` and `InvoiceBusinessValidator`; controller stays thin.
+- **Pagination** – Laravel pagination; frontend shows 10 per page with Previous/Next and page numbers.
 
-### Запуск у Docker
+---
 
-1. З кореня проєкту виконайте:
+## 3. What would you improve for production?
+
+- Dedicated service layer and full unit/feature tests for validation and dates.
+- Filters and sorting on the list; design system / shared UI components.
+- Audit trail for invoice changes.
+
+---
+
+## 4. UX edge cases covered
+
+- Loading and error states on list and detail.
+- Edit form disabled when `status !== 'pending'` with clear message.
+- `gross_amount` computed as `net_amount + vat_amount`; backend validates equality.
+- `due_date` must be >= `issue_date` (zod + backend); dates shown in readable format (e.g. uk-UA).
+- Save errors shown above the form without hiding it.
+
+---
+
+## Run with Docker
+
+From project root:
 
 ```bash
+cd /path/to/pv
 docker-compose up --build
 ```
 
-- Backend (Laravel API): `http://localhost:8000`, REST‑ендпоінти під `/api/invoices`.
-- MySQL: порт хоста `3307`, база `invoices`.
-- Frontend (Nuxt 4): `http://localhost:3000`, працює з API через `API_BASE_URL` (`backend:8000/api` всередині мережі Docker).
+Backend runs migrations on startup. To stop: `Ctrl+C` then `docker-compose down`.
 
+---
+
+## Composer, migrations, and seeds
+
+**Inside Docker (backend container running):**
+
+```bash
+docker-compose exec backend composer install
+docker-compose exec backend php artisan migrate --force
+docker-compose exec backend php artisan db:seed --force
+```
+
+Reset DB and run migrations + seeds:
+
+```bash
+docker-compose exec backend php artisan migrate:fresh --seed --force
+```
+
+**Local (no Docker):** PHP 8.2+ and MySQL required.
+
+```bash
+composer install
+# Configure .env (DB_*)
+php artisan migrate
+php artisan db:seed
+# Or: php artisan migrate:fresh --seed
+```
+
+---
+
+## URLs after startup
+
+| Service     | URL |
+|------------|-----|
+| **Frontend** | http://localhost:3000 |
+| **Backend API** | http://localhost:8000/api/invoices |
+| **MySQL**   | Host: `localhost`, port: **3307**, DB: `invoices`, user/pass: `invoices` |
+
+Example: `curl http://localhost:8000/api/invoices`

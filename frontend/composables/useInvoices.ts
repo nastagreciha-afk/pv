@@ -56,16 +56,18 @@ export function useInvoices() {
   // State management
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const saveError = ref<string | null>(null)
   const successMessage = ref<string | null>(null)
 
   // Clear messages
   const clearMessages = () => {
     error.value = null
+    saveError.value = null
     successMessage.value = null
   }
 
   // Get all invoices
-  const getInvoices = async (page: number = 1, perPage: number = 20): Promise<PaginatedResponse<Invoice>> => {
+  const getInvoices = async (page: number = 1, perPage: number = 10): Promise<PaginatedResponse<Invoice>> => {
     try {
       isLoading.value = true
       clearMessages()
@@ -105,7 +107,7 @@ export function useInvoices() {
   const updateInvoice = async (id: number, invoiceData: Partial<Invoice>): Promise<Invoice> => {
     try {
       isLoading.value = true
-      clearMessages()
+      saveError.value = null
 
       const response = await $fetch<Invoice>(`${apiBase}/invoices/${id}`, {
         method: 'PUT',
@@ -114,8 +116,9 @@ export function useInvoices() {
 
       successMessage.value = 'Invoice updated successfully!'
       return response
-    } catch (err) {
-      error.value = 'Failed to update invoice. Please try again.'
+    } catch (err: any) {
+      const message = err?.data?.message || err?.message || 'Failed to update invoice. Please try again.'
+      saveError.value = typeof message === 'string' ? message : 'Failed to update invoice. Please try again.'
       console.error('API Error:', err)
       throw err
     } finally {
@@ -126,6 +129,7 @@ export function useInvoices() {
   return {
     isLoading,
     error,
+    saveError,
     successMessage,
     clearMessages,
     getInvoices,

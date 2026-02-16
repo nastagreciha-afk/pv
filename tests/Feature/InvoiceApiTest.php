@@ -78,7 +78,7 @@ class InvoiceApiTest extends TestCase
             'supplier_tax_id' => '9876543210',
             'net_amount' => 10_000.00,
             'vat_amount' => 2_000.00,
-            'gross_amount' => 13_000.00, // неправильна сума
+            'gross_amount' => 13_000.00, // wrong amount (must equal net + vat)
             'currency' => 'UAH',
             'status' => 'pending',
             'issue_date' => '2025-02-10',
@@ -104,7 +104,7 @@ class InvoiceApiTest extends TestCase
             'currency' => 'UAH',
             'status' => 'pending',
             'issue_date' => '2025-02-10',
-            'due_date' => '2025-02-01', // раніше issue_date
+            'due_date' => '2025-02-01', // before issue_date
         ];
 
         $response = $this->postJson('/api/invoices', $payload);
@@ -171,9 +171,8 @@ class InvoiceApiTest extends TestCase
 
         $response
             ->assertStatus(422)
-            ->assertJsonFragment([
-                'message' => 'Only invoices with pending status can be updated.',
-            ]);
+            ->assertJsonValidationErrors(['status'])
+            ->assertJsonPath('errors.status.0', 'Only invoices with pending status can be updated.');
     }
 
     public function test_number_must_be_unique(): void

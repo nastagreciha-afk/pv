@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useForm } from 'vee-validate'
-import { toTypedSchema } from '@vee-validate/zod'
 import * as zod from 'zod'
 import StatusBadge from '~/components/StatusBadge.vue'
 
@@ -26,58 +24,76 @@ const props = defineProps<{
 
 const emit = defineEmits(['cancel'])
 
-// Form validation schema
-const validationSchema = toTypedSchema(
-  zod.object({
-    net_amount: zod.number().min(0.01, 'Net amount must be greater than 0'),
-    vat_amount: zod.number().min(0, 'VAT amount must be 0 or greater'),
-    due_date: zod.string().refine((val) => {
-      if (!props.invoice) return false
-      const dueDate = new Date(val)
-      const issueDate = new Date(props.invoice.issue_date)
-      return dueDate >= issueDate
-    }, 'Due date must be on or after issue date'),
-  })
-)
+// Form field values (refs) — submitted as-is on save
+const netAmount = ref<number>(0)
+const vatAmount = ref<number>(0)
+const dueDate = ref<string>('')
+const formError = ref<string | null>(null)
 
-const { handleSubmit, setValues, values } = useForm({
-  validationSchema,
-})
+/** Format date for API and input type="date": YYYY-MM-DD only */
+function toDateOnly(dateStr: string): string {
+  if (!dateStr) return dateStr
+  return dateStr.includes('T') ? dateStr.split('T')[0]! : dateStr
+}
 
-// Calculate gross amount automatically
-const grossAmount = computed(() => {
-  const net = Number(values.net_amount) || 0
-  const vat = Number(values.vat_amount) || 0
-  return net + vat
-})
-
-// Watch for invoice changes and update form values
 watch(() => props.invoice, (newInvoice) => {
   if (newInvoice) {
-    setValues({
-      net_amount: newInvoice.net_amount,
-      vat_amount: newInvoice.vat_amount,
-      due_date: newInvoice.due_date,
-    })
+    netAmount.value = Number(newInvoice.net_amount) || 0
+    vatAmount.value = Number(newInvoice.vat_amount) || 0
+    dueDate.value = toDateOnly(newInvoice.due_date)
   }
 }, { immediate: true })
 
-// Check if invoice can be edited
+const grossAmount = computed(() => {
+  const net = Number(netAmount.value) || 0
+  const vat = Number(vatAmount.value) || 0
+  return net + vat
+})
+
 const canEdit = computed(() => {
   return props.invoice ? props.invoice.status === 'pending' : false
 })
 
-const onSubmitForm = handleSubmit(async (values) => {
+const schema = zod.object({
+  net_amount: zod.coerce.number().min(0.01, 'Net amount must be greater than 0'),
+  vat_amount: zod.coerce.number().min(0, 'VAT amount must be 0 or greater'),
+  due_date: zod.string().min(1, 'Due date is required').refine((val) => {
+    if (!props.invoice || !val) return false
+    const d = new Date(val)
+    const issue = new Date(props.invoice.issue_date)
+    return d >= issue
+  }, 'Due date must be on or after issue date'),
+})
+
+async function onSubmitForm() {
   if (!props.invoice) return
+  formError.value = null
+
+  const payload = {
+    net_amount: Number(netAmount.value) ?? 0,
+    vat_amount: Number(vatAmount.value) ?? 0,
+    due_date: dueDate.value,
+  }
+  const result = schema.safeParse(payload)
+  if (!result.success) {
+    const err = result.error.flatten().fieldErrors
+    formError.value = err.net_amount?.[0] || err.vat_amount?.[0] || err.due_date?.[0] || 'Validation error'
+    return
+  }
+
+  const net = result.data.net_amount
+  const vat = result.data.vat_amount
+  const gross = net + vat
 
   await props.onSubmit({
     ...props.invoice,
-    net_amount: values.net_amount,
-    vat_amount: values.vat_amount,
-    gross_amount: grossAmount.value,
-    due_date: values.due_date,
+    net_amount: net,
+    vat_amount: vat,
+    gross_amount: gross,
+    issue_date: toDateOnly(props.invoice.issue_date),
+    due_date: toDateOnly(result.data.due_date),
   })
-})
+}
 
 const handleCancel = () => {
   emit('cancel')
@@ -127,8 +143,8 @@ const handleCancel = () => {
     </div>
 
     <!-- Edit form -->
-    <form v-else-if="invoice" @submit="onSubmitForm" class="divide-y divide-gray-100">
-      <div class="px-4 py-5 sm:px-6">
+    <form v-else-if="invoice" @submit.prevent="onSubmitForm" class="divide-y divide-gray-100">
+      <div class="px-6 py-5 sm:px-8">
         <div class="flex justify-between items-start">
           <div>
             <h2 class="text-lg font-medium text-gray-900">Edit Invoice {{ invoice.number }}</h2>
@@ -139,8 +155,12 @@ const handleCancel = () => {
         </div>
       </div>
 
-      <div class="px-4 py-5 sm:px-6">
-        <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+      <div v-if="formError" class="px-6 py-2 border-l-4 border-red-400 bg-red-50">
+        <p class="text-sm text-red-800">{{ formError }}</p>
+      </div>
+
+      <div class="px-6 py-5 sm:px-8">
+        <div class="grid grid-cols-1 gap-x-8 gap-y-8 sm:grid-cols-6">
           <div class="sm:col-span-3">
             <label for="net_amount" class="block text-sm font-medium leading-6 text-gray-900">Net Amount</label>
             <div class="mt-2">
@@ -148,10 +168,10 @@ const handleCancel = () => {
                 type="number"
                 step="0.01"
                 id="net_amount"
-                v-model="values.net_amount"
-                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                v-model.number="netAmount"
+                class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
               />
-              <p class="mt-1 text-sm text-gray-500">Enter the net amount (without VAT)</p>
+              <p class="mt-2 ml-0.5 text-sm text-gray-500">Enter the net amount (without VAT)</p>
             </div>
           </div>
 
@@ -162,10 +182,10 @@ const handleCancel = () => {
                 type="number"
                 step="0.01"
                 id="vat_amount"
-                v-model="values.vat_amount"
-                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                v-model.number="vatAmount"
+                class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
               />
-              <p class="mt-1 text-sm text-gray-500">Enter the VAT amount</p>
+              <p class="mt-2 ml-0.5 text-sm text-gray-500">Enter the VAT amount</p>
             </div>
           </div>
 
@@ -178,9 +198,9 @@ const handleCancel = () => {
                 :value="`${grossAmount} ${invoice.currency}`"
                 readonly
                 disabled
-                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 bg-gray-50"
+                class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 bg-gray-50"
               />
-              <p class="mt-1 text-sm text-gray-500">Gross amount is calculated automatically (Net + VAT)</p>
+              <p class="mt-2 ml-0.5 text-sm text-gray-500">Gross amount is calculated automatically (Net + VAT)</p>
             </div>
           </div>
 
@@ -190,16 +210,16 @@ const handleCancel = () => {
               <input
                 type="date"
                 id="due_date"
-                v-model="values.due_date"
-                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                v-model="dueDate"
+                class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
               />
-              <p class="mt-1 text-sm text-gray-500">Issue date: {{ new Date(invoice.issue_date).toLocaleDateString() }}</p>
+              <p class="mt-2 ml-0.5 text-sm text-gray-500">Issue date: {{ new Date(invoice.issue_date).toLocaleDateString() }}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="flex justify-end gap-3 px-4 py-4 sm:px-6">
+      <div class="flex justify-end gap-3 px-6 py-4 sm:px-8">
         <button
           type="button"
           @click="handleCancel"

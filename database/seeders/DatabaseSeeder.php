@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Invoice;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -14,15 +13,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
+        User::create([
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'password' => 'password',
         ]);
 
-        // Seed some sample invoices for testing
-        Invoice::factory()->create([
+        Invoice::create([
             'number' => 'INV-2025-0001',
             'supplier_name' => 'ТОВ "Альфа Консалтинг"',
             'supplier_tax_id' => '1234567890',
@@ -35,7 +32,7 @@ class DatabaseSeeder extends Seeder
             'due_date' => '2025-02-20',
         ]);
 
-        Invoice::factory()->create([
+        Invoice::create([
             'number' => 'INV-2025-0002',
             'supplier_name' => 'ТОВ "Бета Сервіс"',
             'supplier_tax_id' => '9876543210',
@@ -48,7 +45,7 @@ class DatabaseSeeder extends Seeder
             'due_date' => '2025-03-01',
         ]);
 
-        Invoice::factory()->create([
+        Invoice::create([
             'number' => 'INV-2025-0003',
             'supplier_name' => 'ТОВ "Гамма Трейд"',
             'supplier_tax_id' => '5555555555',
@@ -60,5 +57,43 @@ class DatabaseSeeder extends Seeder
             'issue_date' => '2025-02-18',
             'due_date' => '2025-03-10',
         ]);
+
+        $moreInvoices = [
+            ['INV-2025-0004', 'ТОВ "Дельта Логістик"', '1111222233', 15000, 3000, 'UAH', 'pending', '2025-02-01', '2025-02-28'],
+            ['INV-2025-0005', 'ТОВ "Епсілон Софт"', '4444555566', 8000, 1600, 'UAH', 'approved', '2025-01-15', '2025-02-15'],
+            ['INV-2025-0006', 'ПП "Жета Трейд"', '7777888899', 25000, 5000, 'UAH', 'rejected', '2025-02-05', '2025-03-05'],
+            ['INV-2025-0007', 'ТОВ "Зета Енерго"', '1212121212', 32000, 6400, 'UAH', 'pending', '2025-02-10', '2025-03-20'],
+            ['INV-2025-0008', 'ТОВ "Іта Консалт"', '3434343434', 9500, 1900, 'UAH', 'approved', '2025-01-20', '2025-02-25'],
+            ['INV-2025-0009', 'ТОВ "Капа Медіа"', '5656565656', 18000, 3600, 'UAH', 'pending', '2025-02-12', '2025-03-12'],
+            ['INV-2025-0010', 'ТОВ "Лямбда Тек"', '7878787878', 42000, 8400, 'UAH', 'approved', '2025-02-01', '2025-03-01'],
+            ['INV-2025-0011', 'ТОВ "Мю Інвест"', '9090909090', 11000, 2200, 'UAH', 'pending', '2025-02-14', '2025-03-14'],
+            ['INV-2025-0012', 'ТОВ "Ню Фарм"', '1313131313', 67000, 13400, 'UAH', 'rejected', '2025-01-25', '2025-02-28'],
+            ['INV-2025-0013', 'ТОВ "Ксі Буд"', '1515151515', 28500, 5700, 'UAH', 'pending', '2025-02-08', '2025-03-08'],
+            ['INV-2025-0014', 'ТОВ "Омікрон Ойл"', '1717171717', 52000, 10400, 'UAH', 'approved', '2025-02-03', '2025-03-10'],
+            ['INV-2025-0015', 'ТОВ "Пі Рітейл"', '1919191919', 13500, 2700, 'UAH', 'pending', '2025-02-16', '2025-03-16'],
+            ['INV-2025-0016', 'ТОВ "Ро Системс"', '2121212121', 38000, 7600, 'UAH', 'approved', '2025-01-30', '2025-02-28'],
+            ['INV-2025-0017', 'ТОВ "Сигма Агро"', '2323232323', 22000, 4400, 'UAH', 'pending', '2025-02-11', '2025-03-11'],
+            ['INV-2025-0018', 'ТОВ "Тау Транс"', '2525252525', 4500, 900, 'UAH', 'rejected', '2025-02-07', '2025-03-07'],
+            ['INV-2025-0019', 'ТОВ "Іпсілон Фуд"', '2727272727', 19500, 3900, 'UAH', 'pending', '2025-02-19', '2025-03-19'],
+            ['INV-2025-0020', 'ТОВ "Фі Фінанс"', '2929292929', 78000, 15600, 'UAH', 'approved', '2025-02-04', '2025-03-04'],
+            ['INV-2025-0021', 'ТОВ "Хі Хелс"', '3131313131', 12000, 2400, 'UAH', 'pending', '2025-02-13', '2025-03-13'],
+            ['INV-2025-0022', 'ТОВ "Псі Електро"', '3333333333', 33000, 6600, 'UAH', 'approved', '2025-02-06', '2025-03-06'],
+            ['INV-2025-0023', 'ТОВ "Омега Груп"', '3535353535', 41000, 8200, 'UAH', 'pending', '2025-02-20', '2025-03-20'],
+        ];
+
+        foreach ($moreInvoices as $row) {
+            Invoice::create([
+                'number' => $row[0],
+                'supplier_name' => $row[1],
+                'supplier_tax_id' => (string) $row[2],
+                'net_amount' => $row[3],
+                'vat_amount' => $row[4],
+                'gross_amount' => $row[3] + $row[4],
+                'currency' => $row[5],
+                'status' => $row[6],
+                'issue_date' => $row[7],
+                'due_date' => $row[8],
+            ]);
+        }
     }
 }

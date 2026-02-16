@@ -10,11 +10,11 @@ class EloquentInvoiceRepository implements InvoiceRepositoryInterface
     /**
      * Get all invoices with pagination
      */
-    public function getAll(int $perPage = 20): LengthAwarePaginator
+    public function getAll(int $perPage = 20, int $page = 1): LengthAwarePaginator
     {
         return Invoice::query()
             ->orderByDesc('created_at')
-            ->paginate($perPage);
+            ->paginate(perPage: $perPage, page: $page);
     }
 
     /**
@@ -38,7 +38,19 @@ class EloquentInvoiceRepository implements InvoiceRepositoryInterface
      */
     public function update(Invoice $invoice, array $data): Invoice
     {
-        $invoice->update($data);
+        $fillable = array_flip($invoice->getFillable());
+        $data = array_intersect_key($data, $fillable);
+
+        $data['updated_at'] = now();
+        $data['issue_date'] = $this->toDateString($data['issue_date'] ?? null);
+        $data['due_date'] = $this->toDateString($data['due_date'] ?? null);
+
+        $updated = Invoice::where('id', $invoice->id)->update($data);
+
+        if ($updated === 0) {
+            throw new \RuntimeException('Invoice update affected 0 rows.');
+        }
+
         return $invoice->fresh();
     }
 
@@ -48,5 +60,16 @@ class EloquentInvoiceRepository implements InvoiceRepositoryInterface
     public function canUpdate(Invoice $invoice): bool
     {
         return $invoice->status === 'pending';
+    }
+
+    private function toDateString(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            throw new \InvalidArgumentException('Date value is required.');
+        }
+        $date = $value instanceof \DateTimeInterface
+            ? $value
+            : new \DateTimeImmutable((string) $value);
+        return $date->format('Y-m-d');
     }
 }

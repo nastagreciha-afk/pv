@@ -7,6 +7,7 @@ use App\Http\Requests\Api\InvoiceStoreRequest;
 use App\Http\Requests\Api\InvoiceUpdateRequest;
 use App\Services\InvoiceService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class InvoiceController extends Controller
 {
@@ -20,9 +21,11 @@ class InvoiceController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $invoices = $this->invoiceService->getAllInvoices();
+        $page = $request->integer('page', 1);
+        $perPage = $request->integer('per_page', 20);
+        $invoices = $this->invoiceService->getAllInvoices($perPage, $page);
         return response()->json($invoices);
     }
 

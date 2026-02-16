@@ -19,9 +19,9 @@ class InvoiceService
     /**
      * Get all invoices
      */
-    public function getAllInvoices(int $perPage = 20): array
+    public function getAllInvoices(int $perPage = 20, int $page = 1): array
     {
-        $invoices = $this->repository->getAll($perPage);
+        $invoices = $this->repository->getAll($perPage, $page);
         
         return [
             'data' => $invoices->items(),
@@ -48,7 +48,7 @@ class InvoiceService
         $invoice = $this->repository->find($id);
         
         if (!$invoice) {
-            throw new \Exception('Invoice not found', 404);
+            abort(404, 'Invoice not found');
         }
         
         return $invoice;

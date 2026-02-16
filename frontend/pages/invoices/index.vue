@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import InvoiceTable from '~/components/InvoiceTable.vue'
 import { useInvoices } from '~/composables/useInvoices'
+
+const PER_PAGE = 10
 
 const router = useRouter()
 const { getInvoices, isLoading, error } = useInvoices()
@@ -10,14 +12,14 @@ const { getInvoices, isLoading, error } = useInvoices()
 const invoices = ref<any[]>([])
 const pagination = ref({
   current_page: 1,
-  per_page: 20,
+  per_page: PER_PAGE,
   total: 0,
   last_page: 1,
 })
 
-const fetchInvoices = async () => {
+const fetchInvoices = async (page: number = 1) => {
   try {
-    const response = await getInvoices(1, 20)
+    const response = await getInvoices(page, PER_PAGE)
     invoices.value = response.data
     pagination.value = response.meta
   } catch (err) {
@@ -25,12 +27,28 @@ const fetchInvoices = async () => {
   }
 }
 
+const goToPage = (page: number) => {
+  if (page < 1 || page > pagination.value.last_page) return
+  fetchInvoices(page)
+}
+
 const handleRowClick = (invoiceId: number) => {
   router.push(`/invoices/${invoiceId}`)
 }
 
+const pageNumbers = computed(() => {
+  const last = pagination.value.last_page
+  const current = pagination.value.current_page
+  const delta = 2
+  const range: number[] = []
+  for (let i = Math.max(1, current - delta); i <= Math.min(last, current + delta); i++) {
+    range.push(i)
+  }
+  return range
+})
+
 onMounted(() => {
-  fetchInvoices()
+  fetchInvoices(1)
 })
 </script>
 
@@ -42,7 +60,7 @@ onMounted(() => {
       <button
         type="button"
         class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        @click="fetchInvoices"
+        @click="fetchInvoices(pagination.current_page)"
         :disabled="isLoading"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -59,5 +77,53 @@ onMounted(() => {
       :error="error"
       @row-click="handleRowClick"
     />
+
+    <!-- Pagination -->
+    <div
+      v-if="!error && pagination.last_page > 1"
+      class="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-gray-200 pt-4"
+    >
+      <p class="text-sm text-gray-600">
+        Showing
+        <span class="font-medium">{{ (pagination.current_page - 1) * pagination.per_page + 1 }}</span>
+        –
+        <span class="font-medium">{{ Math.min(pagination.current_page * pagination.per_page, pagination.total) }}</span>
+        of
+        <span class="font-medium">{{ pagination.total }}</span>
+      </p>
+      <nav class="flex items-center gap-1">
+        <button
+          type="button"
+          class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+          :disabled="pagination.current_page <= 1 || isLoading"
+          @click="goToPage(pagination.current_page - 1)"
+        >
+          Previous
+        </button>
+        <template v-for="p in pageNumbers" :key="p">
+          <button
+            type="button"
+            :class="[
+              'min-w-[2.25rem] rounded-md px-3 py-1.5 text-sm font-medium',
+              p === pagination.current_page
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+            ]"
+            :disabled="isLoading"
+            @click="goToPage(p)"
+          >
+            {{ p }}
+          </button>
+        </template>
+        <button
+          type="button"
+          class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+          :disabled="pagination.current_page >= pagination.last_page || isLoading"
+          @click="goToPage(pagination.current_page + 1)"
+        >
+          Next
+        </button>
+      </nav>
+    </div>
   </div>
 </template>

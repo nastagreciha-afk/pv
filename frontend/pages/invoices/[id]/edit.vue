@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import InvoiceForm from '~/components/InvoiceForm.vue'
 import { useInvoices } from '~/composables/useInvoices'
 
 const route = useRoute()
 const router = useRouter()
-const { getInvoice, updateInvoice, isLoading, error, successMessage } = useInvoices()
+const { getInvoice, updateInvoice, isLoading, error, saveError, successMessage } = useInvoices()
 
 const invoice = ref<any>(null)
 const invoiceId = computed(() => Number(route.params.id))
@@ -56,6 +56,11 @@ onMounted(() => {
       <h1 class="mt-4 text-2xl font-bold text-gray-900">Edit Invoice</h1>
     </div>
 
+    <!-- Save error (form stays visible) -->
+    <div v-if="saveError" class="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
+      <p class="text-sm font-medium text-red-800">{{ saveError }}</p>
+    </div>
+
     <!-- Success message -->
     <div v-if="successMessage" class="mb-4 rounded-md bg-green-50 p-4">
       <div class="flex">
@@ -70,7 +75,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Edit Form -->
+    <!-- Edit Form (error = only load error; saveError is shown above) -->
     <InvoiceForm
       :invoice="invoice"
       :loading="isLoading"

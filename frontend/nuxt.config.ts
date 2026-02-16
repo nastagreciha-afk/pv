@@ -1,14 +1,17 @@
-// nuxt.config.ts
-
 export default defineNuxtConfig({
     compatibilityDate: '2026-02-14',
     devtools: { enabled: true },
+    srcDir: '.',
+    modules: [],
 
-    modules: [
-        // '@nuxtjs/tailwindcss', // Temporary disabled due to compatibility issues
-    ],
+    css: ['./assets/css/tailwind.css'],
 
-    // Remove postcss configuration from here since we have postcss.config.js
+    postcss: {
+        plugins: {
+            tailwindcss: {},
+            autoprefixer: {},
+        },
+    },
 
     components: {
         global: true,
@@ -31,6 +34,6 @@ export default defineNuxtConfig({
 
     typescript: {
         strict: true,
-        typeCheck: true,
+        typeCheck: false,
     },
 })

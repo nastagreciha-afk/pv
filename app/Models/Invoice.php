@@ -26,4 +26,18 @@ class Invoice extends Model
         'issue_date',
         'due_date',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'net_amount' => 'decimal:2',
+            'vat_amount' => 'decimal:2',
+            'gross_amount' => 'decimal:2',
+            'issue_date' => 'date',
+            'due_date' => 'date',
+        ];
+    }
 }
